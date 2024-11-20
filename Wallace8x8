@@ -1,0 +1,111 @@
+`timescale 1ns / 1ps
+
+module multiplier(
+    input [7:0] a, b, 
+    output [15:0] prod
+    );
+    
+wire [15:0] pp[7:0][7:0]; //initialize variable
+
+genvar i, j;
+generate
+    for (i = 0; i < 8; i = i + 1) begin : y //pp[0-7][j]
+        for (j = 0; j < 8; j = j + 1) begin : x //pp[i][0-7]
+            assign pp[i][j] = a[j] & b[i]; //multiplication to set up pp rows
+        end
+    end
+endgenerate
+
+//uses bits of each sum/cout as a placeholder for the next partial product
+wire [63:0] sum, cout; 
+
+assign prod[0] = pp[0][0]; //bit 0
+
+halfadder pp1(.a(pp[0][1]), .b(pp[1][0]), .sum(prod[1]), .cout(cout[0])); //bit 1
+
+fulladder pp2_1(.a(pp[0][2]), .b(pp[1][1]), .cin(cout[0]), .sum(sum[0]), .cout(cout[1])); //bit 2
+halfadder pp2_2(.a(sum[0]), .b(pp[2][0]), .sum(prod[2]), .cout(cout[2])); 
+
+fulladder pp3_1(.a(cout[1]), .b(pp[0][3]), .cin(cout[2]), .sum(sum[1]), .cout(cout[3])); //bit 3
+fulladder pp3_2(.a(pp[1][2]), .b(pp[2][1]), .cin(pp[3][0]), .sum(sum[2]), .cout(cout[4]));
+halfadder pp3_3(.a(sum[1]), .b(sum[2]), .sum(prod[3]), .cout(cout[5])); 
+
+fulladder pp4_1(.a(cout[3]), .b(cout[4]), .cin(cout[5]), .sum(sum[3]), .cout(cout[6])); //bit 4
+fulladder pp4_2(.a(pp[0][4]), .b(pp[1][3]), .cin(pp[2][2]), .sum(sum[4]), .cout(cout[7]));
+fulladder pp4_3(.a(pp[3][1]), .b(pp[4][0]), .cin(sum[3]), .sum(sum[5]), .cout(cout[8]));
+halfadder pp4_4(.a(sum[4]), .b(sum[5]), .sum(prod[4]), .cout(cout[9])); 
+
+fulladder pp5_1(.a(cout[6]), .b(cout[7]), .cin(cout[8]), .sum(sum[6]), .cout(cout[10])); //bit 5
+fulladder pp5_2(.a(pp[0][5]), .b(pp[1][4]), .cin(cout[9]), .sum(sum[7]), .cout(cout[11]));
+fulladder pp5_3(.a(pp[2][3]), .b(pp[3][2]), .cin(pp[4][1]), .sum(sum[8]), .cout(cout[12]));
+fulladder pp5_4(.a(pp[5][0]), .b(sum[6]), .cin(sum[7]), .sum(sum[9]), .cout(cout[13]));
+halfadder pp5_5(.a(sum[8]), .b(sum[9]), .sum(prod[5]), .cout(cout[14])); 
+
+fulladder pp6_1(.a(cout[10]), .b(cout[11]), .cin(cout[12]), .sum(sum[10]), .cout(cout[15])); //bit 6
+fulladder pp6_2(.a(cout[13]), .b(cout[14]), .cin(pp[0][6]), .sum(sum[11]), .cout(cout[16]));
+fulladder pp6_3(.a(pp[1][5]), .b(pp[2][4]), .cin(pp[3][3]), .sum(sum[12]), .cout(cout[17]));
+fulladder pp6_4(.a(pp[4][2]), .b(pp[5][1]), .cin(pp[6][0]), .sum(sum[13]), .cout(cout[18]));
+fulladder pp6_5(.a(sum[10]), .b(sum[11]), .cin(sum[12]), .sum(sum[14]), .cout(cout[19]));
+halfadder pp6_6(.a(sum[13]), .b(sum[14]), .sum(prod[6]), .cout(cout[20])); 
+
+fulladder pp7_1(.a(cout[15]), .b(cout[16]), .cin(cout[17]), .sum(sum[15]), .cout(cout[21])); //bit 7
+fulladder pp7_2(.a(cout[18]), .b(cout[19]), .cin(cout[20]), .sum(sum[16]), .cout(cout[22]));
+fulladder pp7_3(.a(pp[0][7]), .b(pp[1][6]), .cin(pp[2][5]), .sum(sum[17]), .cout(cout[23]));
+fulladder pp7_4(.a(pp[3][4]), .b(pp[4][3]), .cin(pp[5][2]), .sum(sum[18]), .cout(cout[24]));
+fulladder pp7_5(.a(pp[6][1]), .b(pp[7][0]), .cin(sum[15]), .sum(sum[19]), .cout(cout[25]));
+fulladder pp7_6(.a(sum[16]), .b(sum[17]), .cin(sum[18]), .sum(sum[20]), .cout(cout[26]));
+halfadder pp7_7(.a(sum[19]), .b(sum[20]), .sum(prod[7]), .cout(cout[27])); 
+
+fulladder pp8_1(.a(cout[21]), .b(cout[22]), .cin(cout[23]), .sum(sum[21]), .cout(cout[28])); //bit 8
+fulladder pp8_2(.a(cout[24]), .b(cout[25]), .cin(cout[26]), .sum(sum[22]), .cout(cout[29]));
+fulladder pp8_3(.a(cout[27]), .b(pp[1][7]), .cin(pp[2][6]), .sum(sum[23]), .cout(cout[30]));
+fulladder pp8_4(.a(pp[3][5]), .b(pp[4][4]), .cin(pp[5][3]), .sum(sum[24]), .cout(cout[31]));
+fulladder pp8_5(.a(pp[6][2]), .b(pp[7][1]), .cin(sum[21]), .sum(sum[25]), .cout(cout[32]));
+fulladder pp8_6(.a(sum[22]), .b(sum[23]), .cin(sum[24]), .sum(sum[26]), .cout(cout[33]));
+halfadder pp8_7(.a(sum[25]), .b(sum[26]), .sum(prod[8]), .cout(cout[34])); 
+
+fulladder pp9_1(.a(cout[28]), .b(cout[29]), .cin(cout[30]), .sum(sum[27]), .cout(cout[35])); //bit 9
+fulladder pp9_2(.a(cout[31]), .b(cout[32]), .cin(cout[33]), .sum(sum[28]), .cout(cout[36]));
+fulladder pp9_3(.a(cout[34]), .b(pp[2][7]), .cin(pp[3][6]), .sum(sum[29]), .cout(cout[37]));
+fulladder pp9_4(.a(pp[4][5]), .b(pp[5][4]), .cin(pp[6][3]), .sum(sum[30]), .cout(cout[38]));
+fulladder pp9_5(.a(pp[7][2]), .b(sum[27]), .cin(sum[28]), .sum(sum[31]), .cout(cout[39]));
+fulladder pp9_6(.a(sum[29]), .b(sum[30]), .cin(sum[31]), .sum(prod[9]), .cout(cout[40]));
+
+fulladder pp10_1(.a(cout[35]), .b(cout[36]), .cin(cout[37]), .sum(sum[32]), .cout(cout[41])); //bit 10
+fulladder pp10_2(.a(cout[38]), .b(cout[39]), .cin(cout[40]), .sum(sum[33]), .cout(cout[42]));
+fulladder pp10_3(.a(pp[3][7]), .b(pp[4][6]), .cin(pp[5][5]), .sum(sum[34]), .cout(cout[43]));
+fulladder pp10_4(.a(pp[6][4]), .b(pp[7][3]), .cin(sum[32]), .sum(sum[35]), .cout(cout[44]));
+fulladder pp10_5(.a(sum[33]), .b(sum[34]), .cin(sum[35]), .sum(prod[10]), .cout(cout[45]));
+
+fulladder pp11_1(.a(cout[41]), .b(cout[42]), .cin(cout[43]), .sum(sum[36]), .cout(cout[46])); //bit 11
+fulladder pp11_2(.a(cout[44]), .b(cout[45]), .cin(pp[4][7]), .sum(sum[37]), .cout(cout[47]));
+fulladder pp11_3(.a(pp[5][6]), .b(pp[6][5]), .cin(pp[7][4]), .sum(sum[38]), .cout(cout[48]));
+fulladder pp11_4(.a(sum[36]), .b(sum[37]), .cin(sum[38]), .sum(prod[11]), .cout(cout[49]));
+
+fulladder pp12_1(.a(cout[46]), .b(cout[47]), .cin(cout[48]), .sum(sum[39]), .cout(cout[50])); //bit 12
+fulladder pp12_2(.a(cout[49]), .b(pp[5][7]), .cin(pp[6][6]), .sum(sum[40]), .cout(cout[51]));
+fulladder pp12_3(.a(pp[7][5]), .b(sum[39]), .cin(sum[40]), .sum(prod[12]), .cout(cout[52]));
+
+fulladder pp13_1(.a(cout[50]), .b(cout[51]), .cin(cout[52]), .sum(sum[41]), .cout(cout[53])); //bit 13
+fulladder pp13_2(.a(pp[6][7]), .b(pp[7][6]), .cin(sum[41]), .sum(prod[13]), .cout(cout[54]));
+
+fulladder pp14_1(.a(cout[53]), .b(cout[54]), .cin(pp[7][7]), .sum(prod[14]), .cout(prod[15])); //bit 14 and 15 (carry)
+
+endmodule
+
+//adders for partial products described in dataflow
+module fulladder(
+    input a, b, cin,
+    output sum, cout
+);
+    assign sum = a ^ b ^ cin;
+    assign cout = (a & b) | (b & cin) | (a & cin);
+endmodule
+
+module halfadder(
+    input a, b,
+    output sum, cout
+);
+    assign sum = a ^ b;
+    assign cout = a & b;
+endmodule
