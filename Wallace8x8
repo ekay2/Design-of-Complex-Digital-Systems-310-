@@ -109,3 +109,33 @@ module halfadder(
     assign sum = a ^ b;
     assign cout = a & b;
 endmodule
+
+module multiplier_tb;
+
+reg [7:0] a;
+reg [7:0] b;
+wire [15:0] prod;
+
+// instantiate the multiplier
+multiplier in(.a(a) , .b(b) , .prod(prod));
+
+initial 
+begin
+// no issues/example done in class (should be 007e)
+a = 8'b00001110 ; 
+b = 8'b00001001 ; 
+#10;
+
+// carry to bit 15 (should be 54ab)
+a = 8'b11111111 ; 
+b = 8'b01010101 ; 
+#10; 
+
+// should be all 0 (should be 0000)
+a = 8'b00000000;  
+b = 8'b00000001;  
+#10;
+
+$finish;
+end
+endmodule
