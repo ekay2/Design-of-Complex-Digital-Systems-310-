@@ -1,0 +1,52 @@
+`timescale 1ns / 1ps
+
+module full_adder_Struct(a,b,cin,sum,cout);
+    input a,b,cin;
+    output sum,cout;
+
+    wire w1, w2, w3;
+    
+    xor(w1,a,b);
+    xor(sum,w1,cin);
+    
+    and(w2,a,b);
+    and(w3,w1,cin);
+    
+    or(cout,w2,w3);
+    
+endmodule
+
+module rca_4bit_tb();
+    reg [3:0] a,b;
+    reg cin;
+    wire [3:0] sum;
+    wire cout;
+    
+    full_adder_Struct rca(
+    a,b,cin,sum,cout
+    );
+    
+    initial begin
+    a = 4'b0000; //clear
+    b = 4'b0000;
+    #10
+    
+    a = 4'b1100; //test 12 + 1 for normal addition
+    b = 4'b0001;
+    #10
+    
+    a = 4'b0111; // test 7 + 3 to check if carrying over to the next bit works
+    b = 4'b0011;
+    #10
+    
+    a = 4'b1111; // test 15 + 1 to check if the cout works 
+    b = 4'b0001;  
+
+end
+    
+	initial begin
+	   $dumpfile("rca_4bit.vcd"); 
+	   $dumpvars(0, rca_4bit_tb); 
+	   $monitor($time, ": %b + %b = %b, %b", a, b, sum, cout); 
+	end
+endmodule
