@@ -1,0 +1,201 @@
+`timescale 1ns / 1ps
+
+module Project2(
+    input reset, clock, din,
+    output result
+);
+
+    //variables
+    wire [40:0] data_in;
+    reg [15:0] A, B;
+    reg opcode; 
+    reg ready;
+    wire [19:0] alu_result;
+    reg [27:0] final_output;
+    reg load;
+
+    SIPO_41bit sipo_inst (.clock(clock), .reset(reset), .shift(1'b1), .serial_in(din), .data_in(data_in));
+
+    //set A, B, and opcode based on data_in and then set ready to 1 to load into PISO
+    always @(posedge clock or posedge reset) 
+        begin
+        if (reset) 
+            begin
+            ready <= 1'b0;
+            end 
+        else 
+            begin
+            if (data_in[40:33] == 8'h5A) 
+                begin
+                opcode <= data_in[32];
+                A <= data_in[31:16];
+                B <= data_in[15:0];
+                ready <= 1'b1;
+                end 
+            else
+                begin
+                ready <= 1'b0;
+                end
+            end
+        end
+
+    //instantiate the addition or subtraction alu (decides in this module based on opcode)
+    op alu (.opcode(opcode), .A(A), .B(B), .result(alu_result));
+
+    //set load if the data is ready to be output
+    always @(posedge clock or posedge reset) 
+        begin
+        if (reset) 
+            begin
+            final_output <= 28'b0;
+            load <= 1'b0;
+            end 
+        else if (ready) 
+            begin
+            final_output <= {8'b10010110, alu_result};
+            load <= 1'b1;
+            end 
+        else 
+            begin
+            load <= 1'b0;
+            end
+        end
+
+    PISO_28bit piso (.clock(clock), .reset(reset), .load(load), .shift(1'b1), .parallel_in(final_output), .result(result));
+    
+endmodule
+
+// SIPO input
+module SIPO_41bit(
+    input clock, reset, shift,
+    input serial_in,
+    output reg [40:0] data_in
+    );
+    
+    always @(posedge clock or posedge reset) 
+        begin
+        if (reset) //active high reset
+            begin
+            data_in <= 41'b0;
+            end
+        else if (shift) //shift in input to LSB and move the previous data into data_in until [40:32] is seen as control signal
+            begin
+            data_in <= {data_in[39:0], serial_in}; //40:1 = data_in, 0 = serial_in
+            end
+        end
+endmodule  
+
+//PISO output
+module PISO_28bit(
+    input clock, reset, load, shift,
+    input [27:0] parallel_in,
+    output reg result
+    );
+    
+    reg [27:0] shift_reg;
+    
+    always @(posedge clock or posedge reset) 
+        begin
+            if (reset) 
+            begin //active high reset
+                shift_reg <= {28{1'b0}};
+                result <= 1'b0;
+            end 
+            else if (load) 
+            begin
+                shift_reg <= parallel_in; //load data into shift register to allow shift function
+            end 
+            else if (shift)
+            begin
+                result <= shift_reg[27]; //assign result as RMB
+                shift_reg <= {shift_reg[26:0], 1'b0}; // shift left and fill LMB with 0
+            end
+        end
+endmodule  
+
+module op(
+    input opcode,
+    input [15:0] A, B,
+    output [19:0] result
+);
+    
+    wire [19:0] sum, out;
+    
+    digitaddition adder_inst (.A(A), .B(B), .sum(sum));
+    digitsubtraction subtractor_inst (.A(A), .B(B), .out(out));
+    
+    assign result = opcode ? out : sum;
+    
+endmodule
+
+//bit addition
+module bitaddition(
+    input [3:0] A, B,
+    input cin,
+    output [3:0] F,
+    output cout
+    );
+    
+    wire [4:0] a;
+    
+    assign a = A + B + cin;
+    assign cout  = (a > 9) ? 1'b1 : 1'b0;
+    
+    assign F = cout ? (a - 10) : a[3:0];   
+    
+endmodule
+
+//full addition
+module digitaddition(
+    input [15:0] A, B,
+    output [19:0] sum
+    );
+    
+    wire [3:0] sum0, sum1, sum2, sum3, sum4;
+    wire [3:1] carry;
+    
+    bitaddition U0 (.A(A[3:0]), .B(B[3:0]),     .cin(1'b0), .cout(carry[1]), .F(sum0)); 
+    bitaddition U1 (.A(A[7:4]), .B(B[7:4]), .cin(carry[1]), .cout(carry[2]), .F(sum1));
+    bitaddition U2 (.A(A[11:8]), .B(B[11:8]), .cin(carry[2]), .cout(carry[3]), .F(sum2));
+    bitaddition U3 (.A(A[15:12]), .B(B[15:12]), .cin(carry[3]),  .cout(sum4[0]), .F(sum3));
+    
+    assign sum4[3:1] = 3'b000;
+    
+    assign sum = {sum4, sum3, sum2, sum1, sum0};
+    
+endmodule
+
+module digitsubtraction(
+    input [15:0] A, B,       
+    output [19:0] out 
+);
+    wire b0, b1, b2, b3;
+    wire [3:0] out0, out1, out2, out3;
+
+    //perform 16 bit
+    bitsubtraction U0 (.A(A[3:0]), .B(B[3:0]), .cin(1'b0), .borrow_out(b0), .F(out0));
+    bitsubtraction U1 (.A(A[7:4]), .B(B[7:4]), .cin(b0), .borrow_out(b1), .F(out1));
+    bitsubtraction U2 (.A(A[11:8]), .B(B[11:8]), .cin(b1), .borrow_out(b2), .F(out2));
+    bitsubtraction U3 (.A(A[15:12]), .B(B[15:12]), .cin(b2), .borrow_out(b3), .F(out3));
+
+    assign out = {b3, out3, out2, out1, out0};
+endmodule
+
+module bitsubtraction (
+    input [3:0] A, B,
+    input cin, 
+    output [3:0] F, 
+    output borrow_out  
+);
+    wire [4:0] temp; //holds temp subtraction result
+    wire borrow; //1 if borrow is needed
+
+    assign temp = A - B - cin; //A-B (including the possible borrowed value from this digit bc of next digit)
+    assign borrow = (A < (B + cin)); //borrow = 1 if A is less than B (needs to take from prev digit)
+
+    assign borrow_out = borrow;
+
+    assign F = borrow ? (temp + 5'd10) : temp[3:0]; //if borrow needed, add 10 to keep BCD format, otherwise leave as og value
+
+endmodule
+
